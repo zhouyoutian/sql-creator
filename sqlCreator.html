@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>sql生成器</title>
+    <meta charset="UTF-8"></head>
+    <script type="text/javascript" src="./jquery-1.10.2.min.js"></script>
+    <script type="text/javascript" src="./sqlCreator.js"></script>
+    <style type="text/css">
+      select, button, input {
+        height: 30px;
+        border-radius: 3px;
+        margin-left: 10px;
+      }
+      button {
+        padding: 2px 10px 2px 10px;
+        cursor: pointer;
+      }
+      button:hover {
+        border: 2px solid lightblue;
+      }
+      .tip {
+        margin-left: 10px;
+        background-color: lightblue;
+      }
+      #fielditems {
+        margin-top: 10px;
+        min-height: 100px;
+        padding: 10px;
+        border: 1px solid #ccc;
+      }
+      #allCount,#tableName {
+        width: 200px;
+        margin-right: 10px;
+      }
+      .fieldItem {
+        margin-top: 10px;
+      }
+      .delete {
+        margin-left: 10px;
+      }
+      .result {
+        margin-top: 10px;
+      }
+      #sql-result{
+        display: block;
+        padding: 10px;
+        border: 1px solid darkgreen;
+        border-radius: 5px;
+        width: 98%;
+        background-color: #eee;
+      }
+
+      .copy-sql {
+        color: blue;
+        cursor: pointer;
+        float: right;
+        font-style: italic;
+        margin-right: 20px;
+      }
+      .copy-sql:hover {
+        text-decoration: underline;
+      }
+    </style>
+    <script>
+      var fieldCount = 1, fieldArray = [];
+      function addField() {
+       var type = $("#field-type").find("option:selected").val();
+       var typeName = $("#field-type").find("option:selected").text();
+       var name = $('#field').val().toUpperCase();
+       if (!type || !name) {
+        alert('字段类型和字段名称不能为空！');
+        return;
+       }
+       var hasAdd = false;
+       $.each(fieldArray, function(index, item) {
+        if (item.name === name) {
+          hasAdd = true;
+          return false;
+        }
+       })
+       if (hasAdd) {
+        alert('字段不允许重复！');
+        return;
+       }
+       var item = $('<div class="fieldItem"></div>').attr({id: fieldCount});
+       createtip('字段名称:').appendTo(item);
+       $('<span class="fieldName"></span>').text(name).appendTo(item);
+       createtip('字段类型:').appendTo(item);
+       $('<span class="fieldtype"></span>').text(typeName).appendTo(item);
+       switch(type) {
+        case 'time': 
+          createtip('开始年份:').appendTo(item);
+          $('<input class="start"></input>').appendTo(item);
+          createtip('结束年份:').appendTo(item);
+          $('<input class="end"></input>').appendTo(item);
+          break;
+        case 'number':
+          createtip('开始值:').appendTo(item);
+          $('<input class="start"></input>').appendTo(item);
+          createtip('结束值:').appendTo(item);
+          $('<input class="end"></input>').appendTo(item);
+          break;
+        case 'district':
+          break;
+       }
+       $('<button class="delete">删除</button>').appendTo(item).on('click',function(arcs) {
+         var id = $(arcs.target).parent().attr('id');
+         $('div.fieldItem#'+id).remove();
+         for(var i = 0; i < fieldArray.length; i++) {
+           if (fieldArray[i].tag == id) {
+             fieldArray.splice(i, 1);
+             break;
+           }
+         }
+       })
+       item.appendTo($('#fielditems'));
+       var model = {
+         tag: fieldCount,
+         name: name,
+         type: type,
+         start: 0, //district类型无用
+         end: 0 //district类型无用
+       }
+       fieldArray.push(model);
+       fieldCount++;
+      }
+      function createtip(text){
+        return $('<span class="tip"></span>').text(text);
+      }
+      function getsql() {
+        var count = $('#allCount').val(), table = $('#tableName').val();
+        if(!count || !table || fieldArray.length < 1) {
+          alert('生成记录数、表名、字段序列都不能为空！');
+          return;
+        }
+        for(var i=0;i< fieldArray.length;i++){
+          var item = fieldArray[i];
+          if (item.type != "district") {
+            item.start = parseFloat($('div.fieldItem#'+ item.tag + ' .start').val());
+            item.end = parseFloat($('div.fieldItem#'+ item.tag + ' .end').val());
+          }
+        }
+        var params = {
+          count: parseInt(count),
+          table: table,
+          fields: fieldArray
+        }
+        var sqls = SqlCreator.create(params);
+        $('#sql-result').html(sqls);
+      }
+      function copy() {
+        var text = document.getElementById('sql-result');
+          if (document.body.createTextRange) {
+              var range = document.body.createTextRange();
+              range.moveToElementText(text);
+              range.select();
+           } else if (window.getSelection) {
+              var selection = window.getSelection();
+              var range = document.createRange();
+              range.selectNodeContents(text);
+              selection.removeAllRanges();
+              selection.addRange(range);
+              document.execCommand("Copy") 
+              alert('复制成功！');   
+          }
+      }
+    </script>
+  </head>
+  <body>
+    <div>
+      <div>
+        字段类型:
+        <select id="field-type">
+            <option value="district">行政区代码</option>
+            <option value ="number">数值</option>
+            <option value ="time">时间</option>
+        </select>
+        字段名称:
+        <input id="field" style="width: 200px"></input>
+        <button onclick="addField()">增加字段</button>
+      </div>
+      <div id="fielditems">
+      </div>
+    </div>
+    <div class="result">
+      生成记录数:
+      <input id="allCount" style="width: 200px;margin-right: 10px;"></input>
+      表名称:
+      <input id="tableName" style="width:200px"></input>
+      <button onclick="getsql()">生成sql</button>
+    </div>
+    <div>
+      sql:<a class="copy-sql" onclick="copy()">复制内容</a>
+      <span id="sql-result">sql 列表</span>
+    </div>
+  </body>
+</html>
